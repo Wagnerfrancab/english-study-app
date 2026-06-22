@@ -521,6 +521,7 @@
           <div class="fc-answer" id="fc-a">prazo / data limite</div>
           <div class="fc-example" id="fc-ex">"The deadline is Friday — we need to hurry."</div>
           <div class="fc-tip" id="fc-tp">Dica: lembre de uma entrega com prazo apertado</div>
+          <button id="fc-speak" onclick="event.stopPropagation();speakWord()" title="Ouvir pronúncia" style="display:none;margin-top:14px;padding:7px 16px;border-radius:20px;border:0.5px solid var(--border2);background:var(--surface);color:var(--teal-dark);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;gap:6px;align-items:center;">🔊 Ouvir pronúncia</button>
         </div>
         <div class="fc-actions" id="fc-btns" style="display:none">
           <button class="btn btn-again" onclick="gradeFC(0)">↺ Rever</button>
@@ -752,6 +753,8 @@ function loadFC(){
   document.getElementById('fc-tp').style.display='none';
   document.getElementById('fc-h').style.display='block';
   document.getElementById('fc-btns').style.display='none';
+  document.getElementById('fc-speak').style.display='none';
+  window.speechSynthesis&&window.speechSynthesis.cancel();
   document.getElementById('fc-count').innerText='Card '+(fcIdx+1)+' de '+filtered.length;
   document.getElementById('fc-score').innerText='✓ '+fcEasy+'   ✗ '+fcHard;
 }
@@ -764,6 +767,22 @@ function revealFC(){
   document.getElementById('fc-tp').style.display='block';
   document.getElementById('fc-h').style.display='none';
   document.getElementById('fc-btns').style.display='flex';
+  document.getElementById('fc-speak').style.display='inline-flex';
+  speakWord();
+}
+
+function speakWord(){
+  var word=document.getElementById('fc-w').innerText;
+  if(!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  var u=new SpeechSynthesisUtterance(word);
+  u.lang='en-US';
+  u.rate=0.85;
+  u.pitch=1;
+  var voices=window.speechSynthesis.getVoices();
+  var enVoice=voices.find(function(v){return v.lang==='en-US';})||voices.find(function(v){return v.lang.startsWith('en');});
+  if(enVoice)u.voice=enVoice;
+  window.speechSynthesis.speak(u);
 }
 
 function gradeFC(g){
