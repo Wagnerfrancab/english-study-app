@@ -856,18 +856,18 @@ function escHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function getGeminiKey(){
-  return localStorage.getItem('gemini_api_key')||'';
+function getAnthropicKey(){
+  return localStorage.getItem('anthropic_api_key')||'';
 }
 
-function saveGeminiKey(k){
-  localStorage.setItem('gemini_api_key',k);
+function saveAnthropicKey(k){
+  localStorage.setItem('anthropic_api_key',k);
 }
 
 async function analyzeNote(){
   var txt=document.getElementById('note-input').value.trim();
   if(!txt){alert('Escreva algo primeiro!');return;}
-  var apiKey=getGeminiKey();
+  var apiKey=getAnthropicKey();
   if(!apiKey){
     document.getElementById('api-key-section').style.display='block';
     return;
@@ -880,33 +880,37 @@ async function analyzeNote(){
   var typeLabel={'diary':'diário livre','work':'e-mail profissional','grammar':'prática de gramática','vocab':'uso de vocabulário novo'}[type]||'escrita geral';
   var prompt='You are an English teacher helping a Brazilian beginner (A2 level). The student wrote a "'+typeLabel+'" text. Respond ONLY in Brazilian Portuguese (pt-BR). Be encouraging, concise and practical.\n\nText: "'+txt+'"\n\nRespond with exactly these 4 sections:\n\n**O que você acertou:**\n(list 1-2 positive things as bullet points)\n\n**Correções:**\n(max 3 corrections in format: ❌ errado → ✅ correto — com explicação de 1 linha)\n\n**Versão melhorada:**\n(rewrite 1-2 sentences more naturally in English, then explain briefly in Portuguese)\n\n**Palavra do dia:**\n(1 useful word related to the text: word /phonetics/ = translation — short example sentence)\n\nKeep it concise. Max 200 words total.';
   try{
-    var res=await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key='+apiKey,{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({
-        contents:[{parts:[{text:prompt}]}],
-        generationConfig:{maxOutputTokens:1000,temperature:0.7}
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
       })
     });
     var data=await res.json();
     if(data.error){
-      var errMsg=data.error&&data.error.message?data.error.message:'Erro de autenticação';
+      var errMsg=data.error.message||'Erro de autenticação';
       var hint='';
-      if(errMsg.indexOf('quota')!==-1||errMsg.indexOf('Quota')!==-1||errMsg.indexOf('RESOURCE_EXHAUSTED')!==-1){
-        hint='<br><small style="color:var(--text3)">Cota excedida. Aguarde alguns minutos e tente novamente, ou use uma conta Google pessoal (não corporativa).</small>';
-      } else if(errMsg.indexOf('API_KEY_INVALID')!==-1||errMsg.indexOf('invalid')!==-1){
-        hint='<br><small style="color:var(--text3)">Verifique se a chave foi copiada corretamente do <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--teal)">Google AI Studio</a>.</small>';
+      if(errMsg.indexOf('authentication')!==-1||errMsg.indexOf('invalid')!==-1){
+        hint='<br><small style="color:var(--text3)">Verifique se a chave foi copiada corretamente de <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--teal)">console.anthropic.com</a>.</small>';
       }
-      content.innerHTML='<strong>Erro da API Gemini:</strong> '+escHtml(errMsg)+hint;
+      content.innerHTML='<strong>Erro da API:</strong> '+escHtml(errMsg)+hint;
       document.getElementById('api-key-section').style.display='block';
       return;
     }
-    var msg=data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts[0]?data.candidates[0].content.parts[0].text:'Erro ao analisar.';
+    var msg=data.content&&data.content[0]?data.content[0].text:'Erro ao analisar.';
     content.innerHTML=msg.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
     addMins(3);notesCount++;
     document.getElementById('s-notes').innerText=notesCount;
   }catch(e){
-    content.innerHTML='Erro de conexão. Verifique sua API Key do Gemini abaixo.';
+    content.innerHTML='Erro de conexão. Verifique sua API Key abaixo.';
     document.getElementById('api-key-section').style.display='block';
   }
 }
@@ -957,14 +961,14 @@ buildAchievements();
 loadFC();
 </script>
 
-<!-- GEMINI API KEY CONFIG -->
+<!-- ANTHROPIC API KEY CONFIG -->
 <div id="api-key-section" style="display:none;position:fixed;bottom:20px;right:20px;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:16px 20px;width:340px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
-  <p style="font-size:13px;font-weight:500;margin-bottom:4px">🔑 Configure sua API Key do Gemini</p>
-  <p style="font-size:12px;color:var(--text3);margin-bottom:4px">A API do Google Gemini é <strong>gratuita</strong> para uso pessoal.</p>
-  <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Obtenha sua chave em: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--teal)">aistudio.google.com</a></p>
-  <input type="password" id="api-key-input" placeholder="AIza..." style="width:100%;font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-family:inherit;margin-bottom:8px">
+  <p style="font-size:13px;font-weight:500;margin-bottom:4px">🔑 Configure sua API Key da Anthropic</p>
+  <p style="font-size:12px;color:var(--text3);margin-bottom:4px">Use sua conta Pro para gerar a chave.</p>
+  <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Obtenha em: <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--teal)">console.anthropic.com</a></p>
+  <input type="password" id="api-key-input" placeholder="sk-ant-... (cole sua chave aqui)" style="width:100%;font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-family:inherit;margin-bottom:8px">
   <div style="display:flex;gap:8px">
-    <button class="btn btn-primary" onclick="saveGeminiKey(document.getElementById('api-key-input').value.trim());document.getElementById('api-key-section').style.display='none';analyzeNote()" style="flex:1;justify-content:center">Salvar e analisar</button>
+    <button class="btn btn-primary" onclick="saveAnthropicKey(document.getElementById('api-key-input').value.trim());document.getElementById('api-key-section').style.display='none';analyzeNote()" style="flex:1;justify-content:center">Salvar e analisar</button>
     <button class="btn" onclick="document.getElementById('api-key-section').style.display='none'">Fechar</button>
   </div>
 </div>
