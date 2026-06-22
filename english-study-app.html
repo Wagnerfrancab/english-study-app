@@ -880,7 +880,7 @@ async function analyzeNote(){
   var typeLabel={'diary':'diário livre','work':'e-mail profissional','grammar':'prática de gramática','vocab':'uso de vocabulário novo'}[type]||'escrita geral';
   var prompt='You are an English teacher helping a Brazilian beginner (A2 level). The student wrote a "'+typeLabel+'" text. Respond ONLY in Brazilian Portuguese (pt-BR). Be encouraging, concise and practical.\n\nText: "'+txt+'"\n\nRespond with exactly these 4 sections:\n\n**O que você acertou:**\n(list 1-2 positive things as bullet points)\n\n**Correções:**\n(max 3 corrections in format: ❌ errado → ✅ correto — com explicação de 1 linha)\n\n**Versão melhorada:**\n(rewrite 1-2 sentences more naturally in English, then explain briefly in Portuguese)\n\n**Palavra do dia:**\n(1 useful word related to the text: word /phonetics/ = translation — short example sentence)\n\nKeep it concise. Max 200 words total.';
   try{
-    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+apiKey,{
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -890,7 +890,14 @@ async function analyzeNote(){
     });
     var data=await res.json();
     if(data.error){
-      content.innerHTML='<strong>API Key inválida ou sem permissão.</strong><br><small style="color:var(--text3)">'+escHtml(data.error.message||'Erro de autenticação')+'</small>';
+      var errMsg=data.error&&data.error.message?data.error.message:'Erro de autenticação';
+      var hint='';
+      if(errMsg.indexOf('quota')!==-1||errMsg.indexOf('Quota')!==-1||errMsg.indexOf('RESOURCE_EXHAUSTED')!==-1){
+        hint='<br><small style="color:var(--text3)">Cota excedida. Aguarde alguns minutos e tente novamente, ou use uma conta Google pessoal (não corporativa).</small>';
+      } else if(errMsg.indexOf('API_KEY_INVALID')!==-1||errMsg.indexOf('invalid')!==-1){
+        hint='<br><small style="color:var(--text3)">Verifique se a chave foi copiada corretamente do <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--teal)">Google AI Studio</a>.</small>';
+      }
+      content.innerHTML='<strong>Erro da API Gemini:</strong> '+escHtml(errMsg)+hint;
       document.getElementById('api-key-section').style.display='block';
       return;
     }
