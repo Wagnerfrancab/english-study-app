@@ -783,6 +783,7 @@ function revealFC(){
 function speakWord(){
   var word=document.getElementById('fc-w').innerText;
   if(!('speechSynthesis' in window))return;
+  if(window._fcRecognition){try{window._fcRecognition.stop();}catch(e){}}
   window.speechSynthesis.cancel();
   function doSpeak(voices){
     var u=new SpeechSynthesisUtterance(word);
@@ -795,13 +796,13 @@ function speakWord(){
       var found=voices.find(function(v){return v.name.indexOf(preferred[i])!==-1;});
       if(found){enVoice=found;break;}
     }
-    if(!enVoice) enVoice=voices.find(function(v){return v.lang==='en-US' && !v.name.toLowerCase().match(/pt|br|portugu/);});
-    if(!enVoice) enVoice=voices.find(function(v){return v.lang.startsWith('en') && !v.name.toLowerCase().match(/pt|br|portugu/);});
+    if(!enVoice) enVoice=voices.find(function(v){return v.lang==='en-US'&&!v.name.toLowerCase().match(/pt|br|portugu/);});
+    if(!enVoice) enVoice=voices.find(function(v){return v.lang.startsWith('en')&&!v.name.toLowerCase().match(/pt|br|portugu/);});
     if(enVoice) u.voice=enVoice;
-    window.speechSynthesis.speak(u);
+    setTimeout(function(){window.speechSynthesis.speak(u);},150);
   }
   var voices=window.speechSynthesis.getVoices();
-  if(voices.length){
+  if(voices&&voices.length){
     doSpeak(voices);
   } else {
     window.speechSynthesis.onvoiceschanged=function(){
