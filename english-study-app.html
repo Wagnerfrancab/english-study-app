@@ -880,7 +880,7 @@ async function analyzeNote(){
   var typeLabel={'diary':'diário livre','work':'e-mail profissional','grammar':'prática de gramática','vocab':'uso de vocabulário novo'}[type]||'escrita geral';
   var prompt='You are an English teacher helping a Brazilian beginner (A2 level). The student wrote a "'+typeLabel+'" text. Respond ONLY in Brazilian Portuguese (pt-BR). Be encouraging, concise and practical.\n\nText: "'+txt+'"\n\nRespond with exactly these 4 sections:\n\n**O que você acertou:**\n(list 1-2 positive things as bullet points)\n\n**Correções:**\n(max 3 corrections in format: ❌ errado → ✅ correto — com explicação de 1 linha)\n\n**Versão melhorada:**\n(rewrite 1-2 sentences more naturally in English, then explain briefly in Portuguese)\n\n**Palavra do dia:**\n(1 useful word related to the text: word /phonetics/ = translation — short example sentence)\n\nKeep it concise. Max 200 words total.';
   try{
-    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,{
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key='+apiKey,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
