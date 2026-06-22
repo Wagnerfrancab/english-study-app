@@ -522,6 +522,8 @@
           <div class="fc-example" id="fc-ex">"The deadline is Friday — we need to hurry."</div>
           <div class="fc-tip" id="fc-tp">Dica: lembre de uma entrega com prazo apertado</div>
           <button id="fc-speak" onclick="event.stopPropagation();speakWord()" title="Ouvir pronúncia" style="display:none;margin-top:14px;padding:7px 16px;border-radius:20px;border:0.5px solid var(--border2);background:var(--surface);color:var(--teal-dark);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;gap:6px;align-items:center;">🔊 Ouvir pronúncia</button>
+          <button id="fc-mic" onclick="event.stopPropagation();startPronunciationCheck()" title="Praticar pronúncia" style="display:none;margin-top:8px;padding:7px 16px;border-radius:20px;border:0.5px solid var(--border2);background:var(--surface);color:var(--purple);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;align-items:center;">🎤 Falar a palavra</button>
+          <div id="fc-speech-result" style="display:none;margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;text-align:center;"></div>
         </div>
         <div class="fc-actions" id="fc-btns" style="display:none">
           <button class="btn btn-again" onclick="gradeFC(0)">↺ Rever</button>
@@ -619,8 +621,10 @@
         <textarea id="note-input" placeholder="Write something in English... Pode errar! Ex: Today I go to work and I very tired..."></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="analyzeNote()">Corrigir com IA →</button>
+          <button class="btn" id="note-mic-btn" onclick="startSpeechNote()">🎤 Ditar em inglês</button>
           <button class="btn" onclick="saveNote()">🔖 Salvar</button>
         </div>
+        <div id="note-speech-status" style="display:none;margin-top:8px;font-size:12px;color:var(--purple);padding:6px 10px;background:var(--purple-light);border-radius:var(--radius);">🎤 Ouvindo... fale em inglês</div>
       </div>
 
       <div class="ai-box" id="ai-result">
@@ -754,7 +758,10 @@ function loadFC(){
   document.getElementById('fc-h').style.display='block';
   document.getElementById('fc-btns').style.display='none';
   document.getElementById('fc-speak').style.display='none';
+  document.getElementById('fc-mic').style.display='none';
+  document.getElementById('fc-speech-result').style.display='none';
   window.speechSynthesis&&window.speechSynthesis.cancel();
+  if(window._fcRecognition){try{window._fcRecognition.stop();}catch(e){}}
   document.getElementById('fc-count').innerText='Card '+(fcIdx+1)+' de '+filtered.length;
   document.getElementById('fc-score').innerText='✓ '+fcEasy+'   ✗ '+fcHard;
 }
@@ -768,6 +775,8 @@ function revealFC(){
   document.getElementById('fc-h').style.display='none';
   document.getElementById('fc-btns').style.display='flex';
   document.getElementById('fc-speak').style.display='inline-flex';
+  document.getElementById('fc-mic').style.display='inline-flex';
+  document.getElementById('fc-speech-result').style.display='none';
   speakWord();
 }
 
@@ -864,6 +873,22 @@ function saveAnthropicKey(k){
   localStorage.setItem('anthropic_api_key',k);
 }
 
+function renderMarkdown(text){
+  var html = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^#{1,3} (.+)$/gm,'<p style="font-size:13px;font-weight:600;color:var(--text);margin:14px 0 6px">$1</p>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^[-•] (.+)$/gm,'<div style="display:flex;gap:6px;margin:4px 0"><span style="color:var(--teal);font-size:14px">•</span><span>$1</span></div>')
+    .replace(/❌ (.+?) → ✅ (.+?) — (.+)/g,'<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0"><div style="font-size:13px;margin-bottom:4px"><span style="color:#A32D2D">❌ $1</span> <span style="color:var(--text3)">→</span> <span style="color:var(--teal-dark)">✅ $2</span></div><div style="font-size:12px;color:var(--text2)">$3</div></div>')
+    .replace(/^---$/gm,'<hr style="border:none;border-top:0.5px solid var(--border);margin:12px 0">')
+    .replace(/
+{2,}/g,'</p><p style="margin:6px 0">')
+    .replace(/
+/g,'<br>');
+  return '<div style="font-size:13px;line-height:1.7;color:var(--text)">'+html+'</div>';
+}
+
 async function analyzeNote(){
   var txt=document.getElementById('note-input').value.trim();
   if(!txt){alert('Escreva algo primeiro!');return;}
@@ -906,13 +931,109 @@ async function analyzeNote(){
       return;
     }
     var msg=data.content&&data.content[0]?data.content[0].text:'Erro ao analisar.';
-    content.innerHTML=msg.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    content.innerHTML=renderMarkdown(msg);
     addMins(3);notesCount++;
     document.getElementById('s-notes').innerText=notesCount;
   }catch(e){
     content.innerHTML='Erro de conexão. Verifique sua API Key abaixo.';
     document.getElementById('api-key-section').style.display='block';
   }
+}
+
+function startPronunciationCheck(){
+  var word=document.getElementById('fc-w').innerText;
+  var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    document.getElementById('fc-speech-result').style.display='block';
+    document.getElementById('fc-speech-result').innerHTML='<span style="color:var(--amber)">⚠️ Seu navegador não suporta reconhecimento de fala. Use Chrome ou Edge.</span>';
+    return;
+  }
+  var result=document.getElementById('fc-speech-result');
+  var micBtn=document.getElementById('fc-mic');
+  micBtn.innerText='🔴 Ouvindo...';
+  micBtn.style.color='var(--coral)';
+  result.style.display='block';
+  result.innerHTML='<span style="color:var(--purple)">Fale a palavra agora...</span>';
+  var rec=new SpeechRecognition();
+  window._fcRecognition=rec;
+  rec.lang='en-US';
+  rec.interimResults=false;
+  rec.maxAlternatives=5;
+  rec.onresult=function(e){
+    var heard=[];
+    for(var i=0;i<e.results[0].length;i++) heard.push(e.results[0][i].transcript.toLowerCase().trim());
+    var target=word.toLowerCase().trim();
+    var match=heard.some(function(h){return h===target||h.replace(/[^a-z]/g,'')===target.replace(/[^a-z]/g,'');});
+    if(match){
+      result.innerHTML='<div style="background:#E1F5EE;border-radius:8px;padding:10px;color:#085041"><strong>✅ Perfeito!</strong> O navegador reconheceu "'+escHtml(word)+'" corretamente!</div>';
+      fcEasy++;
+    } else {
+      var bestMatch=heard[0]||'não identificado';
+      result.innerHTML='<div style="background:#FAECE7;border-radius:8px;padding:10px;color:#712B13"><strong>🔄 Tente novamente</strong><br>Você disse: <em>"'+escHtml(bestMatch)+'"</em><br>Esperado: <em>"'+escHtml(word)+'"</em><br><small style="color:#993C1D">Dica: ouça a pronúncia e tente imitar</small></div>';
+    }
+    micBtn.innerText='🎤 Falar a palavra';
+    micBtn.style.color='var(--purple)';
+  };
+  rec.onerror=function(e){
+    result.innerHTML='<span style="color:var(--amber)">⚠️ Não foi possível ouvir. Verifique o microfone e tente novamente.</span>';
+    micBtn.innerText='🎤 Falar a palavra';
+    micBtn.style.color='var(--purple)';
+  };
+  rec.start();
+}
+
+var _noteRecognition=null;
+var _noteListening=false;
+
+function startSpeechNote(){
+  var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    alert('Reconhecimento de fala não suportado. Use Chrome ou Edge.');
+    return;
+  }
+  if(_noteListening){
+    if(_noteRecognition)try{_noteRecognition.stop();}catch(e){}
+    _noteListening=false;
+    document.getElementById('note-mic-btn').innerText='🎤 Ditar em inglês';
+    document.getElementById('note-speech-status').style.display='none';
+    return;
+  }
+  var status=document.getElementById('note-speech-status');
+  var btn=document.getElementById('note-mic-btn');
+  _noteListening=true;
+  btn.innerText='⏹ Parar ditado';
+  status.style.display='block';
+  var rec=new SpeechRecognition();
+  _noteRecognition=rec;
+  rec.lang='en-US';
+  rec.interimResults=true;
+  rec.continuous=true;
+  var finalText='';
+  rec.onresult=function(e){
+    var interim='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){finalText+=e.results[i][0].transcript+' ';}
+      else{interim+=e.results[i][0].transcript;}
+    }
+    var textarea=document.getElementById('note-input');
+    textarea.value=finalText+interim;
+  };
+  rec.onend=function(){
+    if(_noteListening){
+      try{rec.start();}catch(e){
+        _noteListening=false;
+        btn.innerText='🎤 Ditar em inglês';
+        status.style.display='none';
+      }
+    }
+  };
+  rec.onerror=function(e){
+    _noteListening=false;
+    btn.innerText='🎤 Ditar em inglês';
+    status.style.display='none';
+    if(e.error==='not-allowed') alert('Permissão de microfone negada. Autorize o acesso ao microfone no navegador.');
+  };
+  rec.start();
 }
 
 function buildHeatmap(){
